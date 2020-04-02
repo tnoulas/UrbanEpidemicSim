@@ -89,6 +89,10 @@ class PlaceNetSim:
 			mask = (self.df_transitions['timestamp1'] > date1) & (self.df_transitions['timestamp2'] <= date2)
 			df_transitions_snap = self.df_transitions.loc[mask]
 
+			### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
+			venue1.incubate_cycle(date1)
+			venue2.incubate_cycle(date2) #check
+
 			#simulate 'spread': each row in the transitions graph is a movement from place 1 to place 2
 			# this information will be used to describe population exchanges between places
 			for row in df_transitions_snap.iterrows():
@@ -100,10 +104,6 @@ class PlaceNetSim:
 				#check if interaction involves 'infected' nodes and if yes, spread the virus
 				# if (NYC_graph.nodes[venue1]['status'] == 1 and NYC_graph.nodes[venue2]['status'] == 0):
 				# 	NYC_graph.nodes[venue2]['status'] = 1
-
-				### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
-				venue1.incubate_cycle(date1)
-				venue2.incubate_cycle(date2)
 
 
 				### AND A POPULATION EXCHANGE STEP (2)
