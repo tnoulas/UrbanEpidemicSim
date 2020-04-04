@@ -24,10 +24,10 @@ class PlaceNetSim:
 		self.cur_time = None 
 		self.NYC_graph = nx.DiGraph()
 		self.places = {}
-		self.init_graph_and_populations()
+		self.init_graph()
+		self.load_transitions_data()
 
-
-	def init_graph_and_populations(self):
+	def init_graph(self):
 		#read venue (node) data 
 		# node_data = {}
 		self.pos_dict = {} #will be used to draw the nodes in the graph with geographic topology
@@ -52,17 +52,18 @@ class PlaceNetSim:
 		#read transitions and respective timestamp information 
 		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
 		self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
-		self.df_transitions['timestamp2'] =pd.to_datetime(self.df_transitions.timestamp2)
+		self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
 
 		#sort transitions by date
 		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
 
 		#load total movements originating at each place 
-		for place in self.places:
-			mask = (self.df_transitions['venue1'] == venue)
+		for place_id in self.places:
+			mask = (self.df_transitions['venue1'] == place_id)
 			place_transitions = self.df_transitions.loc[mask]
 			
-			place.set_total_movements(len(place_transitions))
+			#this initialises also the population of the place -- experimental
+			self.places[place_id].set_total_movements(len(place_transitions))
 
 	
 	def run_simulation(self):
@@ -89,10 +90,6 @@ class PlaceNetSim:
 			mask = (self.df_transitions['timestamp1'] > date1) & (self.df_transitions['timestamp2'] <= date2)
 			df_transitions_snap = self.df_transitions.loc[mask]
 
-			### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
-			venue1.incubate_cycle(date1)
-			venue2.incubate_cycle(date2) #check
-
 			#simulate 'spread': each row in the transitions graph is a movement from place 1 to place 2
 			# this information will be used to describe population exchanges between places
 			for row in df_transitions_snap.iterrows():
@@ -105,6 +102,9 @@ class PlaceNetSim:
 				# if (NYC_graph.nodes[venue1]['status'] == 1 and NYC_graph.nodes[venue2]['status'] == 0):
 				# 	NYC_graph.nodes[venue2]['status'] = 1
 
+				### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
+				self.places[venue1].incubate_cycle(date1)
+				self.places[venue2].incubate_cycle(date2) #check	
 
 				### AND A POPULATION EXCHANGE STEP (2)
 				#for the time being: move a randomly chosen 'fraction' of population at place 1 to place 2
@@ -112,19 +112,19 @@ class PlaceNetSim:
 				venue1_population_set =  self.places[venue1].get_population()
 				venue2_population_set =  self.places[venue2].get_population()
 
-				moving_population_size = 1.0 / self.places[venue1].get_total_movements() 
+				moving_population_size = int(1.0 / self.places[venue1].get_total_movements() )
 
 				#pick random sample of population at origin, then remove from place 1 and add to place 2
 				moving_pop = random.sample(venue1_population_set, moving_population_size)
 				new_venue1_pop = venue1_population_set.difference(moving_pop)
 				self.places[venue1].set_population(new_venue1_pop)
 
-				new_venue2_pop = venue2_population_set.add(moving_pop)
+				new_venue2_pop = venue2_population_set.union(set(moving_pop))
 				self.places[venue1].set_population(new_venue2_pop)
 
-				#increment epoch index and reset date
-				epoch+=1
-				date1 = date2
+			#increment epoch index and reset date
+			epoch+=1
+			date1 = date2
 
 
 
@@ -150,6 +150,9 @@ class PlaceNetSim:
 		plt.close()
 
 
+if __name__ == "__main__":
 
+	psim = PlaceNetSim()
+	psim.run_simulation()
 
 
