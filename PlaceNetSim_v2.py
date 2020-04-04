@@ -122,9 +122,9 @@ class PlaceNetSim:
 				new_venue2_pop = venue2_population_set.union(set(moving_pop))
 				self.places[venue1].set_population(new_venue2_pop)
 
-				#increment epoch index and reset date
-				epoch+=1
-				date1 = date2
+			#increment epoch index and reset date
+			epoch+=1
+			date1 = date2
 
 
 
