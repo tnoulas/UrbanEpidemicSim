@@ -53,6 +53,7 @@ class PlaceNetSim:
 		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
 		self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
 		self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
+		self.total_population_in_data = len(self.df_transitions)
 
 		#sort transitions by date
 		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
@@ -79,9 +80,10 @@ class PlaceNetSim:
 		self.frac_infected_over_time = [] #store for each epoch the fraction of infected population 
 
 		for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
-
-			infected_in_epoch = 0
 			total_pop_in_epoch = 0
+
+			total_infected = 0
+
 
 			#kick start
 			if date1 == None:
@@ -130,8 +132,8 @@ class PlaceNetSim:
 				self.places[venue1].set_population(new_venue2_pop)
 
 				#record number infected and total populations after incubation has taken place 
-				infected_in_epoch += self.places[venue1].get_total_infected()
-				infected_in_epoch += self.places[venue2].get_total_infected()
+				total_infected += self.places[venue1].get_total_infected()
+				total_infected += self.places[venue2].get_total_infected()
 
 				total_pop_in_epoch += len(self.places[venue1].get_population())
 				total_pop_in_epoch += len(self.places[venue2].get_population())
@@ -143,7 +145,7 @@ class PlaceNetSim:
 			if total_pop_in_epoch == 0:
 				continue
 
-			self.frac_infected_over_time.append(infected_in_epoch/total_pop_in_epoch)
+			self.frac_infected_over_time.append(total_infected/self.total_population_in_data) #total_pop_in_epoch)
 
 
 

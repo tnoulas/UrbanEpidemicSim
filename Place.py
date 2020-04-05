@@ -9,7 +9,8 @@ class Place:
 		self.place_info = place_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
 		self.time_to_recover = 14
 		self.total_infected_number = 0
-		
+		self.immune_population = set()
+
 	def get_population(self):
 		return self.population
 
@@ -31,7 +32,7 @@ class Place:
 		for i in range(number):
 			person = Person()
 			#infect with a certain probability 
-			if random.random() > 0.001:
+			if random.random() <= 0.001:
 				person.set_infected(start_time)
 			self.add_person(person)
 
@@ -58,17 +59,22 @@ class Place:
 
 		#calculate number of infected people 		
 		total_infected = len(infected_pop)
-		if total_infected == 0:
-			#if there is no infected person at place, no one else can be infected (ie do not execute code below)
-			return
+		# if total_infected == 0:
+		# 	#if there is no infected person at place, no one else can be infected (ie do not execute code below)
+		# 	return
 
 		total_pop = len(self.population)
 
-		#calculate newly infected
+		#calculate susceptible to infection
 		susceptible_pop = self.population.difference(infected_pop)
+		susceptible_pop = susceptible_pop.difference(self.immune_population)
+		self.immune_population = self.immune_population.union(recovered_pop)
 
 		#calculate probability of infection
-		prob_infection = total_infected / total_pop
+		if total_pop == 0:
+			prob_infection = 0.0
+		else:
+			prob_infection = total_infected / total_pop
 		
 		#calculate newly infected number 
 		newly_infected_num = int(len(susceptible_pop)*prob_infection)
