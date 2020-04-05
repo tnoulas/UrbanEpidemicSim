@@ -53,11 +53,12 @@ class PlaceNetSim:
 		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
 		self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
 		self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
+		self.total_population_in_data = len(self.df_transitions)
 
 		#sort transitions by date
 		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
 
-		#load total movements originating at each place 
+		#load total movements originating at each place ::: TODO IMPROVE THIS BIT AS IT IS THE SLOWEST PART OF INITIALISING THE SYSTEM
 		for place_id in self.places:
 			mask = (self.df_transitions['venue1'] == place_id)
 			place_transitions = self.df_transitions.loc[mask]
@@ -76,7 +77,13 @@ class PlaceNetSim:
 		epoch = 0
 		date1 = None
 		date2 = None
+		self.frac_infected_over_time = [] #store for each epoch the fraction of infected population 
+
 		for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
+			total_pop_in_epoch = 0
+
+			total_infected = 0
+
 
 			#kick start
 			if date1 == None:
@@ -112,7 +119,9 @@ class PlaceNetSim:
 				venue1_population_set =  self.places[venue1].get_population()
 				venue2_population_set =  self.places[venue2].get_population()
 
-				moving_population_size = int(1.0 / self.places[venue1].get_total_movements() )
+
+				# moving_population_size = int(1.0 / self.places[venue1].get_total_movements() )
+				moving_population_size = 1 #this has to be an integer
 
 				#pick random sample of population at origin, then remove from place 1 and add to place 2
 				moving_pop = random.sample(venue1_population_set, moving_population_size)
@@ -122,10 +131,21 @@ class PlaceNetSim:
 				new_venue2_pop = venue2_population_set.union(set(moving_pop))
 				self.places[venue1].set_population(new_venue2_pop)
 
+				#record number infected and total populations after incubation has taken place 
+				total_infected += self.places[venue1].get_total_infected()
+				total_infected += self.places[venue2].get_total_infected()
+
+				total_pop_in_epoch += len(self.places[venue1].get_population())
+				total_pop_in_epoch += len(self.places[venue2].get_population())
+
 			#increment epoch index and reset date
 			epoch+=1
 			date1 = date2
 
+			if total_pop_in_epoch == 0:
+				continue
+
+			self.frac_infected_over_time.append(total_infected/self.total_population_in_data) #total_pop_in_epoch)
 
 
 
@@ -150,9 +170,20 @@ class PlaceNetSim:
 		plt.close()
 
 
+	def plot_infected_vs_total(self):
+		xs = [i for i in range(len(self.frac_infected_over_time))]
+		ys = self.frac_infected_over_time
+		plt.xlabel('epoch')
+		plt.ylabel('Fraction Infected')
+		plt.plot(xs, ys, 'k.')
+		plt.grid(True)
+		plt.savefig('infected_per_epoch.pdf')
+		plt.close() 
+
 if __name__ == "__main__":
 
 	psim = PlaceNetSim()
 	psim.run_simulation()
+	psim.plot_infected_vs_total()
 
 
