@@ -78,9 +78,10 @@ class PlaceNetSim:
 		date2 = None
 		self.frac_infected_over_time = [] #store for each epoch the fraction of infected population 
 
-		infected_in_epoch = 0
-		total_pop_in_epoch = 0
 		for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
+
+			infected_in_epoch = 0
+			total_pop_in_epoch = 0
 
 			#kick start
 			if date1 == None:
@@ -138,6 +139,9 @@ class PlaceNetSim:
 			#increment epoch index and reset date
 			epoch+=1
 			date1 = date2
+
+			if total_pop_in_epoch == 0:
+				continue
 
 			self.frac_infected_over_time.append(infected_in_epoch/total_pop_in_epoch)
 
