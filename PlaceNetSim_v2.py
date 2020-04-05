@@ -59,12 +59,15 @@ class PlaceNetSim:
 		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
 
 		#load total movements originating at each place ::: TODO IMPROVE THIS BIT AS IT IS THE SLOWEST PART OF INITIALISING THE SYSTEM
+		# Use groupby
+		places_group = self.df_transitions.groupby('venue1')
 		for place_id in self.places:
-			mask = (self.df_transitions['venue1'] == place_id)
-			place_transitions = self.df_transitions.loc[mask]
-			
-			#this initialises also the population of the place -- experimental
-			self.places[place_id].set_total_movements(len(place_transitions))
+			try:
+				place_transitions = places_group.get_group(place_id)
+				#this initialises also the population of the place -- experimental
+				self.places[place_id].set_total_movements(len(place_transitions))
+			except KeyError: # there is not this place_id
+				self.places[place_id].set_total_movements(0)
 
 	
 	def run_simulation(self):
