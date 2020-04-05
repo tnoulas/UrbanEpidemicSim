@@ -16,96 +16,102 @@ def perdelta(start, end, delta):
         curr += delta
 
 
-class PlaceNetSim:
+class PlaceNetSim: 
 
-    def __init__(self):
-        self.start_date = datetime(2010, 12, 21, 20, 0, 0)
-        self.end_date = datetime(2011, 9, 19, 17, 0, 0)
-        self.cur_time = None
-        self.NYC_graph = nx.DiGraph()
-        self.places = {}
-        self.init_graph()
-        self.load_transitions_data()
+	def __init__(self):
+		self.start_date = datetime(2010, 12, 21, 20, 0, 0)
+		self.end_date = datetime(2011, 9, 19, 17, 0, 0)
+		self.cur_time = None 
+		self.NYC_graph = nx.DiGraph()
+		self.places = {}
+		self.init_graph()
+		self.load_transitions_data()
 
-    def init_graph(self):
-        # read venue (node) data
-        # node_data = {}
-        self.pos_dict = {}  # will be used to draw the nodes in the graph with geographic topology
-        for l in open('./shared_data/newyork_anon_locationData_newcrawl.txt'):
-            splits = l.split('*;*')
-            venue_id = int(splits[0])
-            venue_info = eval(splits[1])
+	def init_graph(self):
+		#read venue (node) data 
+		# node_data = {}
+		self.pos_dict = {} #will be used to draw the nodes in the graph with geographic topology
+		for l in open('./shared_data/newyork_anon_locationData_newcrawl.txt'):
+			splits = l.split('*;*')
+			venue_id = int(splits[0])
+			venue_info = eval(splits[1])
 
-            # add place to graph
-            self.NYC_graph.add_node(venue_id)
-            self.NYC_graph.nodes[venue_id][
-                'info'] = venue_info  # (40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
+			#add place to graph
+			self.NYC_graph.add_node(venue_id)
+			self.NYC_graph.nodes[venue_id]['info'] = venue_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
 
-            # initialise placee and within place, population information
-            self.places[venue_id] = Place(venue_info)
+			#initialise placee and within place, population information 
+			self.places[venue_id] = Place(venue_info)
 
-            # this will be used for drawing the network
-            self.pos_dict[venue_id] = (venue_info[1], venue_info[0])
+			#this will be used for drawing the network
+			self.pos_dict[venue_id] = (venue_info[1], venue_info[0])
 
-    def load_transitions_data(self):
-        # read transitions and respective timestamp information
-        self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
-        self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
-        self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
-        self.total_population_in_data = len(self.df_transitions)
 
-        # sort transitions by date
-        self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
 
-        # load total movements originating at each place ::: TODO IMPROVE THIS BIT AS IT IS THE SLOWEST PART OF INITIALISING THE SYSTEM
-        for place_id in self.places:
-            mask = (self.df_transitions['venue1'] == place_id)
-            place_transitions = self.df_transitions.loc[mask]
+	def load_transitions_data(self):
+		#read transitions and respective timestamp information 
+		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
+		self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
+		self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
+		self.total_population_in_data = len(self.df_transitions)
 
-            # this initialises also the population of the place -- experimental
-            self.places[place_id].set_total_movements(len(place_transitions))
+		#sort transitions by date
+		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
 
-    def run_simulation(self):
-        # create temporal snapshots of the network: these will be our simulation
-        # first date 2010-12-21 20:27:13
-        # last date 2011-09-19 16:08:50
-        # start_date = datetime(2010, 12, 21, 20, 0, 0)
-        # end_date = datetime(2011, 9, 19, 17, 0, 0)
+		#load total movements originating at each place ::: TODO IMPROVE THIS BIT AS IT IS THE SLOWEST PART OF INITIALISING THE SYSTEM
+		# Use groupby
+		places_group = self.df_transitions.groupby('venue1')
+		for place_id in self.places:
+			try:
+				place_transitions = places_group.get_group(place_id)
+				#this initialises also the population of the place -- experimental
+				self.places[place_id].set_total_movements(len(place_transitions))
+			except KeyError: # there is not this place_id
+				self.places[place_id].set_total_movements(0)
 
-        epoch = 0
-        date1 = None
-        date2 = None
-        self.frac_infected_over_time = []  # store for each epoch the fraction of infected population
+	
+	def run_simulation(self):
+		#create temporal snapshots of the network: these will be our simulation  
+		#first date 2010-12-21 20:27:13
+		#last date 2011-09-19 16:08:50
+		# start_date = datetime(2010, 12, 21, 20, 0, 0)
+		# end_date = datetime(2011, 9, 19, 17, 0, 0)
 
-        for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
-            total_pop_in_epoch = 0
+		epoch = 0
+		date1 = None
+		date2 = None
+		self.frac_infected_over_time = [] #store for each epoch the fraction of infected population 
 
-            total_infected = 0
+		for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
+			total_pop_in_epoch = 0
 
-            # kick start
-            if date1 == None:
-                date1 = date2
-                continue
+			total_infected = 0
 
-            # print (result)
-            print('epoch: ' + str(epoch))
 
-            # filter snapshot from original dataset
-            mask = (self.df_transitions['timestamp1'] > date1) & (self.df_transitions['timestamp2'] <= date2)
-            df_transitions_snap = self.df_transitions.loc[mask]
+			#kick start
+			if date1 == None:
+				date1 = date2
+				continue
 
-            # simulate 'spread': each row in the transitions graph is a movement from place 1 to place 2
-            # this information will be used to describe population exchanges between places
-            for row in df_transitions_snap.iterrows():
-                # print ('hi')
-                # print (row[0])
-                venue1 = row[1][0]
-                venue2 = row[1][1]
+			# print (result)
+			print ('epoch: ' + str(epoch))
 
-                # check if interaction involves 'infected' nodes and if yes, spread the virus
-                # if (NYC_graph.nodes[venue1]['status'] == 1 and NYC_graph.nodes[venue2]['status'] == 0):
-                # 	NYC_graph.nodes[venue2]['status'] = 1
+			#filter snapshot from original dataset
+			mask = (self.df_transitions['timestamp1'] > date1) & (self.df_transitions['timestamp2'] <= date2)
+			df_transitions_snap = self.df_transitions.loc[mask]
 
+			#simulate 'spread': each row in the transitions graph is a movement from place 1 to place 2
+			# this information will be used to describe population exchanges between places
+			for row in df_transitions_snap.iterrows():
+				# print ('hi')
+				# print (row[0])
+				venue1 = row[1][0]
+				venue2 = row[1][1]
+
+				#check if interaction involves 'infected' nodes and if yes, spread the virus
+				# if (NYC_graph.nodes[venue1]['status'] == 1 and NYC_graph.nodes[venue2]['status'] == 0):
+				# 	NYC_graph.nodes[venue2]['status'] = 1
+        
                 ### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
                 self.places[venue1].incubate_cycle(date1)
                 self.places[venue2].incubate_cycle(date2)  # check
