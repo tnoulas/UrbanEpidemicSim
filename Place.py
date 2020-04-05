@@ -8,18 +8,23 @@ class Place:
 		self.population = set()
 		self.place_info = place_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
 		self.time_to_recover = 14
-
+		self.total_infected_number = 0
 		
-
 	def get_population(self):
 		return self.population
+
+
+	def get_total_infected(self):
+		return self.total_infected_number
 
 	def set_population(self, new_population):
 		self.population = new_population
 
+
 	def set_total_movements(self, number):
 		self.total_movements = number
 		self.init_population(self.total_movements) #initilise population according to place popularity 
+
 
 	def init_population(self, number):
 		start_time = datetime(2010, 12, 21, 20, 0, 0)
@@ -29,6 +34,7 @@ class Place:
 			if random.random() > 0.001:
 				person.set_infected(start_time)
 			self.add_person(person)
+
 
 	def get_total_movements(self):
 		return self.total_movements
@@ -40,9 +46,17 @@ class Place:
 	def incubate_cycle(self, current_time_o):
 		''' Process local population at a place and yield a new cycle of infections '''
 
-		#calculate number of infected people 
+		#set recovered timedelta(days=1): set time_to_recover, current_time
 		infected_pop = [p for p in self.population if p.get_status() == 1]
+		recovered_pop = [p.set_immune(current_time_o) for p in infected_pop if current_time_o - p.get_time_infected() > timedelta(days = self.time_to_recover)]
+		infected_pop =  set(infected_pop).difference(recovered_pop) #infected pop - recovered
+		# print (len(infected_pop))
+		# print (len(recovered_pop))
+		# print (len(self.population))
+		# print ('----')
 
+
+		#calculate number of infected people 		
 		total_infected = len(infected_pop)
 		if total_infected == 0:
 			#if there is no infected person at place, no one else can be infected (ie do not execute code below)
@@ -64,10 +78,8 @@ class Place:
 		for i in range(newly_infected_num):
 			newly_infected_pop[i].set_infected(current_time_o)
 
-		#set recovered timedelta(days=1): set time_to_recover, current_time
-		recovered_pop = [p.set_immune(current_time_o) for p in infected_pop if current_time_o - p.get_time_infected() > timedelta(days = self.time_to_recover)]
-
-
+		#count number infected
+		self.total_infected_number = len(infected_pop) + newly_infected_num
 		
 
 	def set_recovered(self):
