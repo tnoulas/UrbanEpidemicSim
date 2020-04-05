@@ -1,0 +1,5 @@
+setuptools>=46
+pip>=20
+networkx
+pandas
+matplotlib
