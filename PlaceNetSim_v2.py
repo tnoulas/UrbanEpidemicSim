@@ -31,6 +31,9 @@ class PlaceNetSim:
 		#read venue (node) data 
 		# node_data = {}
 		self.pos_dict = {} #will be used to draw the nodes in the graph with geographic topology
+		#CURRENTLY the following two lines are commented out but they are needed if we are to use mobility 
+		#self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
+		#places_group = self.df_transitions.groupby('venue1')
 		for l in open('./shared_data/newyork_anon_locationData_newcrawl.txt'):
 			splits = l.split('*;*')
 			venue_id = int(splits[0])
@@ -41,7 +44,7 @@ class PlaceNetSim:
 			self.NYC_graph.nodes[venue_id]['info'] = venue_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
 
 			#initialise placee and within place, population information 
-			self.places[venue_id] = Place(venue_info)
+			self.places[venue_id] = Place(venue_info, None, None) # if we want probababilistic transitions we should set places_group & venue_id
 
 			#this will be used for drawing the network
 			self.pos_dict[venue_id] = (venue_info[1], venue_info[0])
