@@ -31,7 +31,7 @@ class Place:
         for i in range(number):
             person = Person()
             # infect with a certain probability
-            if random.random() <= 0.001:
+            if random.random() <= 0.01:
                 person.set_infected(start_time)
             self.add_person(person)
 
@@ -49,18 +49,9 @@ class Place:
         recovered_pop = [p.set_immune(current_time_o) for p in infected_pop if
                          current_time_o - p.get_time_infected() > timedelta(days=self.time_to_recover)]
         infected_pop = set(infected_pop).difference(recovered_pop)  # infected pop - recovered
-        # print (len(infected_pop))
-        # print (len(recovered_pop))
-        # print (len(self.population))
-        # print ('----')
 
         # calculate number of infected people
         total_infected = len(infected_pop)
-        # if total_infected == 0:
-        # 	#if there is no infected person at place, no one else can be infected (ie do not execute code below)
-        # 	return
-
-        total_pop = len(self.population)
 
         # calculate susceptible to infection
         susceptible_pop = self.population.difference(infected_pop)
@@ -68,6 +59,7 @@ class Place:
         self.immune_population = self.immune_population.union(recovered_pop)
 
         # calculate probability of infection
+        total_pop = len(self.population)
         if total_pop == 0:
             prob_infection = 0.0
         else:
