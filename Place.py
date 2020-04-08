@@ -6,12 +6,18 @@ from Person import Person
 
 class Place:
 
-    def __init__(self, place_info):
+    def __init__(self, place_info,places_group,place_id):
         self.population = set()
         self.place_info = place_info  # (40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
         self.time_to_recover = 14
         self.total_infected_number = 0
         self.immune_population = set()
+        # if places_group and place_id are both None, then there is no transition probabilities estimated
+        try:
+            place_transitions = places_group.get_group(place_id)
+            self.transitions = (place_transitions['venue2'].value_counts()/len(place_transitions)).to_dict()
+        except (KeyError, AttributeError):
+            self.transitions = dict()
 
     def get_population(self):
         return self.population
