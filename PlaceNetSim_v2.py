@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from datetime import datetime, timedelta
 
 import matplotlib.pylab as plt
@@ -20,20 +21,21 @@ class PlaceNetSim:
 
 	def __init__(self):
 		self.start_date = datetime(2010, 12, 21, 20, 0, 0)
-		self.end_date = datetime(2011, 9, 19, 17, 0, 0)
+		# just simulate a day for development 
+		self.end_date = datetime(2010, 12, 22, 20, 0, 0)
+		#self.end_date = datetime(2011, 9, 19, 17, 0, 0)
 		self.cur_time = None 
 		self.NYC_graph = nx.DiGraph()
 		self.places = {}
 		self.init_graph()
-		self.load_transitions_data()
+		#self.load_transitions_data()
 
 	def init_graph(self):
 		#read venue (node) data 
 		# node_data = {}
 		self.pos_dict = {} #will be used to draw the nodes in the graph with geographic topology
-		#CURRENTLY the following two lines are commented out but they are needed if we are to use mobility 
-		#self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
-		#places_group = self.df_transitions.groupby('venue1')
+		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
+		places_group = self.df_transitions.groupby('venue1')
 		for l in open('./shared_data/newyork_anon_locationData_newcrawl.txt'):
 			splits = l.split('*;*')
 			venue_id = int(splits[0])
@@ -41,42 +43,20 @@ class PlaceNetSim:
 
 			#add place to graph
 			self.NYC_graph.add_node(venue_id)
+			# at the venue info we need to add an average duration as well
 			self.NYC_graph.nodes[venue_id]['info'] = venue_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
 
 			#initialise placee and within place, population information 
-			self.places[venue_id] = Place(venue_info, None, None) # if we want probababilistic transitions we should set places_group & venue_id
+			self.places[venue_id] = Place(venue_info, places_group, venue_id)
+			try:
+				initial_place_population = int(len(places_group.get_group(venue_id))*0.2)
+				self.places[venue_id].set_total_movements(initial_place_population)
+			except KeyError:
+				self.places[venue_id].set_total_movements(0)
+			
 
 			#this will be used for drawing the network
 			self.pos_dict[venue_id] = (venue_info[1], venue_info[0])
-
-
-
-	def load_transitions_data(self):
-		#read transitions and respective timestamp information 
-		self.df_transitions = pd.read_csv('./shared_data/newyork_placenet_transitions.csv', error_bad_lines=False)
-		self.df_transitions = self.df_transitions.sample(frac=0.5, replace=False, random_state=1)
-
-
-		self.df_transitions['timestamp1'] = pd.to_datetime(self.df_transitions.timestamp1)
-		self.df_transitions['timestamp2'] = pd.to_datetime(self.df_transitions.timestamp2)
-		self.total_population_in_data = len(self.df_transitions)
-
-		#sort transitions by date
-		self.df_transitions = self.df_transitions.sort_values(by='timestamp1')
-
-		#initialise place mobility info and population 
-		places_group = self.df_transitions.groupby('venue1')
-		for place_id in self.places:
-			try:
-				place_transitions = places_group.get_group(place_id)
-				
-				#this initialises also the population of the place -- experimental
-				#how many people with respect to the volume of movements is a relationship we need to define and discuss
-				initial_place_population = int(len(place_transitions)*0.2)
-				self.places[place_id].set_total_movements(initial_place_population)
-
-			except KeyError: # there is not this place_id
-				self.places[place_id].set_total_movements(0)
 
 	
 	def run_simulation(self):
@@ -85,14 +65,13 @@ class PlaceNetSim:
 		#last date 2011-09-19 16:08:50
 		# start_date = datetime(2010, 12, 21, 20, 0, 0)
 		# end_date = datetime(2011, 9, 19, 17, 0, 0)
-
 		epoch = 0
 		date1 = None
 		date2 = None
 		self.frac_infected_over_time = [] #store for each epoch the fraction of infected population 
 
-		for date2 in perdelta(self.start_date, self.end_date, timedelta(days=1)):
-			total_pop_in_epoch = 0
+		for date2 in perdelta(self.start_date, self.end_date, timedelta(hours = 1)):
+			print(datetime.now())
 
 			total_infected = 0
 
@@ -101,65 +80,36 @@ class PlaceNetSim:
 				date1 = date2
 				continue
 
-			# print (result)
 			print ('epoch: ' + str(epoch))
-
-			#filter snapshot from original dataset
-			mask = (self.df_transitions['timestamp1'] > date1) & (self.df_transitions['timestamp2'] <= date2)
-			df_transitions_snap = self.df_transitions.loc[mask]
 
 			#simulate 'spread': each row in the transitions graph is a movement from place 1 to place 2
 			# this information will be used to describe population exchanges between places
-			for row in df_transitions_snap.iterrows():
-				# print ('hi')
-				# print (row[0])
-				venue1 = row[1][0]
-				venue2 = row[1][1]
-
-				#check if interaction involves 'infected' nodes and if yes, spread the virus
-				# if (NYC_graph.nodes[venue1]['status'] == 1 and NYC_graph.nodes[venue2]['status'] == 0):
-				# 	NYC_graph.nodes[venue2]['status'] = 1
-
-				### AT EVERY TEMPORAL SNAPSHOT WE NEED A DISEASE INCUBATION STEP (1)
-				self.places[venue1].incubate_cycle(date1)
-				self.places[venue2].incubate_cycle(date2)  # check
-
-				### AND A POPULATION EXCHANGE STEP (2)
-				# for the time being: move a randomly chosen 'fraction' of population at place 1 to place 2
-				# fraction size is equal to the number of transitions / total number of transitions out-going from place 1
-				venue1_population_set = self.places[venue1].get_population()
-				venue2_population_set = self.places[venue2].get_population()
-
-				# moving_population_size = int(1.0 / self.places[venue1].get_total_movements() )
-				moving_population_size = 1  # this has to be an integer
-
-				# this takes care of the edge case that a venue1 has 0 population
-				if moving_population_size > len(venue1_population_set):
-					continue
-
-				# pick random sample of population at origin, then remove from place 1 and add to place 2
-				moving_pop = random.sample(venue1_population_set, moving_population_size)
-				new_venue1_pop = venue1_population_set.difference(moving_pop)
-				self.places[venue1].set_population(new_venue1_pop)
-
-				new_venue2_pop = venue2_population_set.union(set(moving_pop))
-				self.places[venue1].set_population(new_venue2_pop)
-
-				# record number infected and total populations after incubation has taken place
-				total_infected += self.places[venue1].get_total_infected()
-				total_infected += self.places[venue2].get_total_infected()
-
-				total_pop_in_epoch += len(self.places[venue1].get_population())
-				total_pop_in_epoch += len(self.places[venue2].get_population())
+			#for row in df_transitions_snap.iterrows():
+			# go over all venues and make an incubation cycle
+			for v in self.NYC_graph.nodes():
+				self.places[v].incubate_cycle(date1)
+				total_infected += self.places[v].get_total_infected()
+			# go over all venues and exchange population
+			for v in self.NYC_graph.nodes():
+				v_population_set = [vp for vp in self.places[v].get_population() if vp.leave_time < date1+timedelta(hours=1)]
+				# this currently does not consider the time between transitions
+				# also since the incubation happens before the movement (start of the epoch) a person that moves within 10 minutes of the epoch, whill not have a chance to be infected during this epoch at its new location -- he will have though a chance of being infected at the original location during this epoch (this might not be that bad)	
+				for vp in v_population_set:
+					try:
+						next_place = np.random.choice(list(self.places[vp.location].transitions.keys()), p = list(self.places[vp.location].transitions.values())) 
+					except ValueError: # there is no outgoing transitions recorded for this venue. Randomly jump to a venue chosen uniformly -- change this to be proportional to check-ins (or better)  
+						next_place = np.random.choice(self.NYC_graph.nodes())
+					self.places[vp.location].remove_person(vp)
+					vp.location = next_place
+					vp.arrival_time = vp.leave_time
+					vp.leave_time = vp.arrival_time + timedelta(minutes = random.uniform(10,200))
+					self.places[next_place].add_person(vp)	
 
 			# increment epoch index and reset date
 			epoch += 1
 			date1 = date2
 
-			if total_pop_in_epoch == 0:
-			    continue
-
-			self.frac_infected_over_time.append(total_infected / self.total_population_in_data)  # total_pop_in_epoch)
+			self.frac_infected_over_time.append(total_infected) # / self.total_population_in_data)  # total_pop_in_epoch)
 
 
 	def draw_infection_graphs(self):
@@ -183,6 +133,8 @@ class PlaceNetSim:
 	    plt.close()
 
 	def plot_infected_vs_total(self):
+
+	    print(self.frac_infected_over_time)
 	    xs = [i for i in range(len(self.frac_infected_over_time))]
 	    ys = self.frac_infected_over_time
 	    plt.xlabel('epoch')
