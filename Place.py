@@ -51,8 +51,28 @@ class Place:
     def add_person(self, person):
         self.population.add(person)
 
+
     def remove_person(self, person):
         self.population.remove(person)
+
+    def incubate_cycle_v2(self, current_time_o, beta=1.0, mu=0.1):
+        '''This version aims to model  the SIR compartment-based descriptions provided in
+            https://medium.com/data-for-science/epidemic-modeling-101-or-why-your-covid19-exponential-fits-are-wrong-97aa50c55f8'''
+
+        N = len(self.population)
+
+        I_t = len([p for p in self.population if p.get_status() == 1]) #number Infected
+        S_t = len(self.population.difference(infected_pop)) #number susceptible
+        R_t = len([p.set_immune(current_time_o) for p in infected_pop if
+         current_time_o - p.get_time_infected() > timedelta(days=self.time_to_recover)])
+
+        S_t_1 = S_t - beta*S_t*I_t/N
+        I_t_1 = I_t + beta*S_t*I_t/N - mu*I_t
+        R_t_1 = R_t + mu*I_t
+
+        pass
+
+
 
     def incubate_cycle(self, current_time_o):
         ''' Process local population at a place and yield a new cycle of infections '''
