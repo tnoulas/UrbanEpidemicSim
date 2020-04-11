@@ -62,6 +62,8 @@ class Place:
 
     def add_person(self, person):
         self.population.add(person)
+        if person.get_status() == 1:
+            self.note_main_graph_infection(1.0)
 
 
     def remove_person(self, person):
