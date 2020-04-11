@@ -119,17 +119,18 @@ class PlaceNetSim:
 					self.places[next_place].add_person(vp)	
 
 			# increment epoch index and reset date
+			self.draw_infection_graphs(epoch)
 			epoch += 1
 			date1 = date2
 
 			self.frac_infected_over_time.append(total_infected) # / self.total_population_in_data)  # total_pop_in_epoch)
 
 
-	def draw_infection_graphs(self):
+	def draw_infection_graphs(self, epoch):
 	    # TODO: fix this so it displays geographically infected population fractions vs infected places
 
 	    # draw the network of infected nodes
-	    infected_node_list = [venue for venue in self.NYC_graph.nodes() if self.NYC_graph.nodes[venue]['status'] == 1]
+	    infected_node_list = [venue for venue in self.NYC_graph.nodes() if self.NYC_graph.nodes[venue]['infected_status'] == 1]
 	    inf_pos_dict = dict((k, self.pos_dict[k]) for k in infected_node_list)
 	    infected_graph = self.NYC_graph.subgraph(infected_node_list)
 	    frac_infected = round(infected_graph.order() / self.NYC_graph.order() * 10, 2)
@@ -140,9 +141,10 @@ class PlaceNetSim:
 	    plt.grid(True)
 	    # nx.draw_networkx_nodes(infected_graph, pos=pos_dict, nodelist = infected_node_list , node_size=1, alpha=0.1)
 	    nx.draw(infected_graph, pos=inf_pos_dict, node_size=0.1, node_color='red', alpha=0.1)
-	    plt.title(self.date2.strftime("%m/%d/%Y") + ' ' + str(frac_infected) + '%' + ' of 85k places infected')
+	    # plt.title(self.date2.strftime("%m/%d/%Y") + ' ' + str(frac_infected) + '%' + ' of 85k places infected')
+	    plt.title(str(frac_infected) + '%' + ' of 85k places infected')
 
-	    plt.savefig('./netgraphs/nyc_net_' + str(self.epoch) + '.png')
+	    plt.savefig('./netgraphs/nyc_net_' + str(epoch) + '.png')
 	    plt.close()
 
 	def plot_infected_vs_total(self):
