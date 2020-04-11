@@ -45,9 +45,13 @@ class PlaceNetSim:
 			self.NYC_graph.add_node(venue_id)
 			# at the venue info we need to add an average duration as well
 			self.NYC_graph.nodes[venue_id]['info'] = venue_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
+			#NEW: 0 means initially place is not infected. We will set to 1 if it is.
+			self.NYC_graph.nodes[venue_id]['infected_status'] = 0
 
-			#initialise placee and within place, population information 
+			#initialise place and within place, population information 
 			self.places[venue_id] = Place(venue_info, places_group, venue_id)
+			#NEW: add reference to main graph to Place Object so we can track which parts of the graph are infected.
+			self.places[venue_id].add_main_graph(self.NYC_graph)
 			try:
 				initial_place_population = int(len(places_group.get_group(venue_id))*0.2)
 				self.places[venue_id].set_total_movements(initial_place_population)
@@ -89,9 +93,18 @@ class PlaceNetSim:
 			for v in self.NYC_graph.nodes():
 				self.places[v].incubate_cycle(date1)
 				total_infected += self.places[v].get_total_infected()
+				#NEW: if no one is infected, add status to corresponding node in graph
+				if self.places[v].get_total_infected() == 0:
+					self.NYC_graph.nodes[v]['infected_status'] = 0
 			# go over all venues and exchange population
 			for v in self.NYC_graph.nodes():
+				#NEW: ignore graph node if it is not infected
+				if self.NYC_graph.nodes[v]['infected_status'] == 0:
+					continue
 				v_population_set = [vp for vp in self.places[v].get_population() if vp.leave_time < date1+timedelta(hours=1)]
+				#NEW: move only infected people
+				# v_population_set = [vp for vp in self.places[v].get_population() if vp.leave_time < date1+timedelta(hours=1) and vp.get_status() == 1]
+
 				# this currently does not consider the time between transitions
 				# also since the incubation happens before the movement (start of the epoch) a person that moves within 10 minutes of the epoch, whill not have a chance to be infected during this epoch at its new location -- he will have though a chance of being infected at the original location during this epoch (this might not be that bad)	
 				for vp in v_population_set:
