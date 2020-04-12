@@ -8,6 +8,15 @@ class Person:
 		self.location = loc_id
 		self.arrival_time = loc_time
 		self.leave_time = loc_time + timedelta(minutes = stay_time)
+	
+	def set_location(self, loc):
+		self.location = loc
+
+	def set_arrival(self, t):
+		self.arrival_time = t
+
+	def set_leave(self, dt):
+		self.leave_time = self.arrival_time + timedelta(minutes = dt)
 
 	def set_infected(self, datetime_o):
 		self.time_infected = datetime_o
