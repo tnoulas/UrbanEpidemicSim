@@ -21,6 +21,15 @@ class Place:
         except (KeyError, AttributeError):
             self.transitions = dict()
 
+    #NEW
+    def add_main_graph(self, graph):
+        self.main_graph = graph
+
+    #NEW
+    def note_main_graph_infection(self, status):
+        '''When the place hosts an infected individual this is 1, otherwise 0'''
+        self.main_graph.nodes[self.vid]['infected_status'] = status
+
     def get_population(self):
         return self.population
 
@@ -43,6 +52,9 @@ class Place:
             # infect with a certain probability
             if random.random() <= 0.01:
                 person.set_infected(start_time)
+                #NEW
+                if self.main_graph.nodes[self.vid]['infected_status'] == 0:
+                    self.note_main_graph_infection(1.0)
             self.add_person(person)
 
     def get_total_movements(self):
@@ -50,6 +62,8 @@ class Place:
 
     def add_person(self, person):
         self.population.add(person)
+        if person.get_status() == 1:
+            self.note_main_graph_infection(1.0)
 
 
     def remove_person(self, person):
