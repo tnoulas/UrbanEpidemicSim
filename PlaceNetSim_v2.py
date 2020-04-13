@@ -92,7 +92,9 @@ class PlaceNetSim:
 			# go over all venues and make an incubation cycle
 			infected_to_move = []
 			for v in self.NYC_graph.nodes():
-				self.places[v].incubate_cycle(date1)
+				# self.places[v].incubate_cycle(date1)
+				self.places[v].incubate_cycle_v2(date1)
+
 				total_infected += self.places[v].get_total_infected()
 				#NEW: if no one is infected, add status to corresponding node in graph
 				if self.places[v].get_total_infected() == 0:
