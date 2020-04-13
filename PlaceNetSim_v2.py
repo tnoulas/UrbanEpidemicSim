@@ -90,6 +90,7 @@ class PlaceNetSim:
 			# this information will be used to describe population exchanges between places
 			#for row in df_transitions_snap.iterrows():
 			# go over all venues and make an incubation cycle
+			infected_to_move = []
 			for v in self.NYC_graph.nodes():
 				self.places[v].incubate_cycle(date1)
 				total_infected += self.places[v].get_total_infected()
@@ -107,16 +108,16 @@ class PlaceNetSim:
 
 				# this currently does not consider the time between transitions
 				# also since the incubation happens before the movement (start of the epoch) a person that moves within 10 minutes of the epoch, whill not have a chance to be infected during this epoch at its new location -- he will have though a chance of being infected at the original location during this epoch (this might not be that bad)	
-				for vp in v_population_set:
-					try:
-						next_place = np.random.choice(list(self.places[vp.location].transitions.keys()), p = list(self.places[vp.location].transitions.values())) 
-					except ValueError: # there is no outgoing transitions recorded for this venue. Randomly jump to a venue chosen uniformly -- change this to be proportional to check-ins (or better)  
-						next_place = np.random.choice(self.NYC_graph.nodes())
-					self.places[vp.location].remove_person(vp)
-					vp.location = next_place
-					vp.arrival_time = vp.leave_time
-					vp.leave_time = vp.arrival_time + timedelta(minutes = random.uniform(10,200))
-					self.places[next_place].add_person(vp)	
+				try:
+					next_place = np.random.choice(list(self.places[v].transitions.keys()), size = len(v_population_set), p = list(self.places[v].transitions.values()))
+				except ValueError: # there is no outgoing transitions recorded for this venue. Randomly jump to a venue chosen uniformly -- change this to be proportional to check-ins (or better)  
+					next_place = np.random.choice(self.NYC_graph.nodes(),size = len(v_population_set))
+				set([self.places[vp.location].remove_person(vp) for vp in v_population_set])
+				set([v_population_set[i].set_location(next_place[i]) for i in range(len(v_population_set))])
+				set([v_population_set[i].set_arrival(v_population_set[i].leave_time) for i in range(len(v_population_set))])
+				tds = list(np.random.uniform(10,200,size=len(v_population_set)))
+				set([v_population_set[i].set_leave(tds[i]) for i in range(len(v_population_set))])
+				set([self.places[vp.location].add_person(vp) for vp in v_population_set])
 
 			# increment epoch index and reset date
 			self.draw_infection_graphs(epoch)
@@ -149,7 +150,6 @@ class PlaceNetSim:
 
 	def plot_infected_vs_total(self):
 
-	    print(self.frac_infected_over_time)
 	    xs = [i for i in range(len(self.frac_infected_over_time))]
 	    ys = self.frac_infected_over_time
 	    plt.xlabel('epoch')
