@@ -33,21 +33,15 @@ nyc_move['dist'] = trans_dist
 nyc_move_period = nyc_move.groupby('day_period')
 
 distances_covered = dict()
-
-for p in periods:
-    #distances_covered[p] = []
-    #distances_covered[p].append(nyc_move_period.get_group(p).groupby('month').apply(lambda x: x.dist))
-    distances_covered[p] = nyc_move_period.get_group(p).groupby('month').apply(lambda x: x.dist)
-
-## create empirical CDFs
-
 distances_covered_ecdf = dict()
 
-# this most probably can be improved in terms of speed
+months = set(list(nyc_move['month']))
 
 for p in periods:
-    for m in list(distances_covered[p].index):
-        distances_covered_ecdf[p+":"+m[0]] = edf.ECDF(distances_covered[p][m[0]])
+    groupp = nyc_move_period.get_group(p).groupby('month')
+    for m in months:
+        distances_covered[p+":"+m] = list(groupp.get_group(m)['dist'])
+        distances_covered_ecdf[p+":"+m] = edf.ECDF(distances_covered[p+":"+m])
 
 
 pickle.dump( [transition_counts_df, distances_covered_ecdf], open( "transitions_simulations.pkl", "wb" ) )
@@ -61,7 +55,7 @@ sample_edf = edf.ECDF(distances_covered[p])
 d = [sample_edf(x) for x in np.linspace(0,np.max(nyc_move['dist']),10000)]
 
 r = random.uniform(0,1)
-adf = lambda x : abs(x - y)
+adf = lambda x : abs(x - r)
 x_hat = min(d, key=adf)
 sample = np.linspace(0,np.max(nyc_move['dist']),10000)[d.index(x_hat)]
 '''
