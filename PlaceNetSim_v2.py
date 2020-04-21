@@ -16,18 +16,30 @@ def perdelta(start, end, delta):
         yield curr
         curr += delta
 
+def get_day_period(time):
+	periods = dict.fromkeys([0,1,2,3,4,5], 'OVERNIGHT')
+	periods.update(dict.fromkeys([6,7,8,9], 'MORNING'))
+	periods.update(dict.fromkeys([10,11,12,13,14], 'MIDDAY'))
+	periods.update(dict.fromkeys([15,16,17,18], 'AFTERNOON'))
+	periods.update(dict.fromkeys([19,20,21,22,23], 'NIGHT'))
+	return periods.get(time.hour, "Invalid time")
 
 class PlaceNetSim: 
 
-	def __init__(self):
+	def __init__(self,periods = 0):
 		self.start_date = datetime(2010, 12, 21, 20, 0, 0)
 		# just simulate a day for development 
 		self.end_date = datetime(2010, 12, 22, 20, 0, 0)
 		#self.end_date = datetime(2011, 9, 19, 17, 0, 0)
 		self.cur_time = None 
 		self.NYC_graph = nx.DiGraph()
+		self.NYC_graph_periods = dict.fromkeys(['OVERNIGHT','MORNING','MIDDAY','AFTERNOON','NIGHT'], nx.DiGraph())
 		self.places = {}
-		self.init_graph()
+		self.places_periods = dict.fromkeys(['OVERNIGHT','MORNING','MIDDAY','AFTERNOON','NIGHT'], {})
+		if periods:
+			self.init_graph_period()
+		else:
+			self.init_graph()
 		#self.load_transitions_data()
 
 	def init_graph(self):
@@ -61,8 +73,35 @@ class PlaceNetSim:
 
 			#this will be used for drawing the network
 			self.pos_dict[venue_id] = (venue_info[1], venue_info[0])
-
 	
+	# new graph initialization function to consider the time period
+	def init_graph_period(self):
+		# the following requires a small change in the NYC_movements_v2 file
+		# remove the \" from the strings
+		# change the month-year column to two separate columns
+		# TODO: the following is timeconsuming (~ 5 seconds each time that it is loaded), so most probably we can pass it as an argument as well
+		self.df_transitions_all = pd.read_csv('./shared_data/NYC_movements_v2.csv', error_bad_lines=False, names = ['venue1','venue2','year','month','period','weight'])
+		for p in ['OVERNIGHT','MORNING','MIDDAY','AFTERNOON','NIGHT','OVERNIGHT']:
+			self.df_transitions = self.df_transitions_all[self.df_transitions_all['period'] == p]
+			period_groups = self.df_transitions.groupby('period')
+			p_group = period_groups.get_group(p)
+			p_places_group = p_group.groupby('venue1')
+			for l in open('./shared_data/NYC_venue_info_v2.csv'):
+				splits = l.split(";")
+				venue_id = splits[0]
+				venue_info = splits[2] ## this does not include information such number of users/checkins
+				self.NYC_graph_periods[p].add_node(venue_id)
+				self.NYC_graph_periods[p].nodes[venue_id]['info'] = venue_info
+				self.NYC_graph_periods[p].nodes[venue_id]['infected_status'] = 0
+				# TODO: the initialization at class Place will need to change to account for the fact that each entry is weighted with the number of transitions of the type observed rather than corresponding to one only transition
+				self.places_periods[p][venue_id] = Place(venue_info, p_places_group, venue_id)
+				self.places_periods[p][venue_id].add_main_graph(self.NYC_graph_periods[p])
+				try:
+					initial_place_population = int(sum(p_places_group.get_group(venue_id)['weight'])*0.2)
+					self.places_periods[p][venue_id].set_total_movements(initial_place_population)
+				except KeyError:
+					self.places_periods[p][venue_id].set_total_movements(0)
+		
 	def run_simulation(self):
 		#create temporal snapshots of the network: these will be our simulation  
 		#first date 2010-12-21 20:27:13
@@ -76,7 +115,8 @@ class PlaceNetSim:
 
 		for date2 in perdelta(self.start_date, self.end_date, timedelta(hours = 1)):
 			print(datetime.now())
-
+			# find the time period we are so we choose the transitions accordingly
+			period = get_day_period(date2)
 			total_infected = 0
 
 			#kick start
