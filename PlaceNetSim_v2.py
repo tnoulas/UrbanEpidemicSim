@@ -7,6 +7,9 @@ import networkx as nx
 import pandas as pd
 
 from Place import Place
+from categories import Categories
+# # print cats.get_top_level_categories()
+# # print cats.get_top_parent('Automotive Shop')
 
 
 # https://stackoverflow.com/questions/10688006/generate-a-list-of-datetimes-between-an-interval
@@ -26,11 +29,13 @@ def get_day_period(time):
 
 class PlaceNetSim: 
 
-	def __init__(self,periods = 0):
+	def __init__(self, cats, periods = 0):
 		self.start_date = datetime(2010, 12, 21, 20, 0, 0)
 		# just simulate a day for development 
 		self.end_date = datetime(2010, 12, 22, 20, 0, 0)
 		#self.end_date = datetime(2011, 9, 19, 17, 0, 0)
+		self.cats = cats #place categories management class
+		self.cats_to_infected_info = {}
 		self.cur_time = None 
 		self.NYC_graph = nx.DiGraph()
 		self.NYC_graph_periods = dict.fromkeys(['OVERNIGHT','MORNING','MIDDAY','AFTERNOON','NIGHT'], nx.DiGraph())
@@ -57,12 +62,12 @@ class PlaceNetSim:
 			self.NYC_graph.add_node(venue_id)
 			# at the venue info we need to add an average duration as well
 			self.NYC_graph.nodes[venue_id]['info'] = venue_info #(40.760265, -73.989105, 'Italian', '217', '291', 'Ristorante Da Rosina')
-			#NEW: 0 means initially place is not infected. We will set to 1 if it is.
+			#0 means initially place is not infected. We will set to 1 if it is.
 			self.NYC_graph.nodes[venue_id]['infected_status'] = 0
 
 			#initialise place and within place, population information 
 			self.places[venue_id] = Place(venue_info, places_group, venue_id)
-			#NEW: add reference to main graph to Place Object so we can track which parts of the graph are infected.
+			#add reference to main graph to Place Object so we can track which parts of the graph are infected.
 			self.places[venue_id].add_main_graph(self.NYC_graph)
 			try:
 				initial_place_population = int(len(places_group.get_group(venue_id))*0.2)
@@ -136,6 +141,12 @@ class PlaceNetSim:
 				self.places[v].incubate_cycle_v2(date1)
 
 				total_infected += self.places[v].get_total_infected()
+				try:
+					top_category = self.cats.get_top_parent(self.places[v].get_category())
+				except:
+					top_category = 'None'
+				self.cats_to_infected_info.setdefault(top_category, 0)
+				self.cats_to_infected_info[top_category] += total_infected
 				#NEW: if no one is infected, add status to corresponding node in graph
 				if self.places[v].get_total_infected() == 0:
 					self.NYC_graph.nodes[v]['infected_status'] = 0
@@ -190,6 +201,14 @@ class PlaceNetSim:
 	    plt.savefig('./netgraphs/nyc_net_' + str(epoch) + '.png')
 	    plt.close()
 
+
+	def plot_infections_per_category(self):
+		cat_infection_freqs = np.array([freq for cat, freq in self.cats_to_infected_info.items()])
+		df = pd.DataFrame([cat_infection_freqs], columns = self.cats_to_infected_info.keys()) 
+		fig = df.plot.bar().get_figure()
+		fig.savefig('infections_per_category.pdf')
+  		
+
 	def plot_infected_vs_total(self):
 
 	    xs = [i for i in range(len(self.frac_infected_over_time))]
@@ -203,6 +222,8 @@ class PlaceNetSim:
 
 
 if __name__ == "__main__":
-    psim = PlaceNetSim()
-    psim.run_simulation()
-    psim.plot_infected_vs_total()
+	cats = Categories()
+	psim = PlaceNetSim(cats)
+	psim.run_simulation()
+	psim.plot_infected_vs_total()
+	psim.plot_infections_per_category()

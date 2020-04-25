@@ -35,6 +35,12 @@ class Place:
         '''When the place hosts an infected individual this is 1, otherwise 0'''
         self.main_graph.nodes[self.vid]['infected_status'] = status
 
+    def get_category(self):
+        ''' Returns lower level foursquare category of venue'''
+        #https://developer.foursquare.com/docs/build-with-foursquare/categories/
+
+        return self.place_info[2]
+
     def get_population(self):
         return self.population
 
